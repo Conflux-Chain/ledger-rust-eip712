@@ -1,5 +1,11 @@
 use crate::utils::{parse_u64, parse_utf8_string};
-use alloc::collections::BTreeMap;
+use alloc::{
+    collections::BTreeMap,
+    string::{String, ToString},
+    vec,
+    vec::Vec,
+    format,
+};
 use alloy_dyn_abi::{Eip712Types, PropertyDef, Resolver};
 use alloy_primitives::hex;
 use bytes::{Buf, Bytes, TryGetError};

@@ -1,3 +1,5 @@
+use alloc::{string::String, vec::Vec};
+
 /// EIP-712 filtering operation type
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Eip712FilterType {

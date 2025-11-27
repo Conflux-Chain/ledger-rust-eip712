@@ -1,5 +1,13 @@
 use crate::types::Eip712StructDefinitions;
 use crate::utils::*;
+
+use alloc::{
+    format,
+    boxed::Box,
+    string::{String, ToString},
+    vec,
+    vec::Vec,
+};
 use alloy_primitives::hex;
 use serde_json::{Number, Value};
 
