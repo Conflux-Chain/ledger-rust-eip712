@@ -1,0 +1,20 @@
+[package]
+name = "ledger-rust-eip712"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+serde_json = { version = "1.0", default-features = false, features = ["alloc"] }
+alloy-dyn-abi = { git = "https://github.com/Conflux-Chain/alloy-rs-core.git", rev = "2a5a324a2c9d33e1cbdb5f694991922e1606ea0f", default-features = false, features = ["eip712"] }
+alloy-primitives = { git = "https://github.com/Conflux-Chain/alloy-rs-core.git", rev = "2a5a324a2c9d33e1cbdb5f694991922e1606ea0f", default-features = false }
+alloy-sol-types = { git = "https://github.com/Conflux-Chain/alloy-rs-core.git", rev = "2a5a324a2c9d33e1cbdb5f694991922e1606ea0f", default-features = false }
+
+[target.'cfg(target_os = "nanox")'.dependencies]
+bytes = { git = "https://github.com/Conflux-Chain/bytes.git", rev = "2ebfc48803a13eac1d18418d8baa7c859f263da3", default-features = false, features = ["extra-platforms"] }
+
+[target.'cfg(not(target_os = "nanox"))'.dependencies]
+bytes = { git = "https://github.com/Conflux-Chain/bytes.git", rev = "2ebfc48803a13eac1d18418d8baa7c859f263da3", default-features = false }
+
+[features]
+default = ["std"]
+std = []
