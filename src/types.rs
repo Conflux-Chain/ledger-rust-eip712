@@ -1,10 +1,10 @@
 use crate::utils::{parse_u64, parse_utf8_string};
 use alloc::{
     collections::BTreeMap,
+    format,
     string::{String, ToString},
     vec,
     vec::Vec,
-    format,
 };
 use alloy_dyn_abi::{Eip712Types, PropertyDef, Resolver};
 use alloy_primitives::hex;
@@ -310,7 +310,10 @@ pub struct Eip712FieldValue {
 impl Eip712FieldValue {
     /// Create a new field value
     pub fn new(value: Vec<u8>) -> Self {
-        Eip712FieldValue { value, is_array_size: false }
+        Eip712FieldValue {
+            value,
+            is_array_size: false,
+        }
     }
 
     /// Create from a string value
@@ -365,7 +368,10 @@ impl Eip712FieldValue {
         let copy_len = (bytes.len() - start).min(value_bytes.len());
         bytes[start..start + copy_len]
             .copy_from_slice(&value_bytes[value_bytes.len() - copy_len..]);
-        Eip712FieldValue { value: bytes, is_array_size: false }
+        Eip712FieldValue {
+            value: bytes,
+            is_array_size: false,
+        }
     }
 
     pub fn to_u64(self) -> Result<u64, &'static str> {
@@ -403,7 +409,10 @@ impl Eip712FieldValue {
             return Err("Address must be 20 bytes".to_string());
         }
 
-        Ok(Eip712FieldValue { value: bytes, is_array_size: false })
+        Ok(Eip712FieldValue {
+            value: bytes,
+            is_array_size: false,
+        })
     }
 
     pub fn to_address_string(&self) -> Result<String, &str> {
@@ -417,7 +426,10 @@ impl Eip712FieldValue {
 
     /// Create a reference to a nested struct (empty value for struct references)
     pub fn from_struct() -> Self {
-        Eip712FieldValue { value: vec![], is_array_size: false }
+        Eip712FieldValue {
+            value: vec![],
+            is_array_size: false,
+        }
     }
 
     /// Create from an int value with specific size
@@ -428,12 +440,18 @@ impl Eip712FieldValue {
         let copy_len = (bytes.len() - start).min(value_bytes.len());
         bytes[start..start + copy_len]
             .copy_from_slice(&value_bytes[value_bytes.len() - copy_len..]);
-        Eip712FieldValue { value: bytes, is_array_size: false }
+        Eip712FieldValue {
+            value: bytes,
+            is_array_size: false,
+        }
     }
 
     /// Create from bytes
     pub fn from_bytes(bytes: Vec<u8>) -> Self {
-        Eip712FieldValue { value: bytes, is_array_size: false }
+        Eip712FieldValue {
+            value: bytes,
+            is_array_size: false,
+        }
     }
 }
 
