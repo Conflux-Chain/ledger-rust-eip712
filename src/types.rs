@@ -304,18 +304,20 @@ pub fn build_resolver_from_struct_defs(
 pub struct Eip712FieldValue {
     /// Raw value data
     pub value: Vec<u8>,
+    pub is_array_size: bool,
 }
 
 impl Eip712FieldValue {
     /// Create a new field value
     pub fn new(value: Vec<u8>) -> Self {
-        Eip712FieldValue { value }
+        Eip712FieldValue { value, is_array_size: false }
     }
 
     /// Create from a string value
     pub fn from_string(s: &str) -> Self {
         Eip712FieldValue {
             value: s.as_bytes().to_vec(),
+            is_array_size: false,
         }
     }
 
@@ -327,6 +329,7 @@ impl Eip712FieldValue {
     pub fn from_u256(value: &[u8; 32]) -> Self {
         Eip712FieldValue {
             value: value.to_vec(),
+            is_array_size: false,
         }
     }
 
@@ -334,6 +337,7 @@ impl Eip712FieldValue {
     pub fn from_address(address: &[u8; 20]) -> Self {
         Eip712FieldValue {
             value: address.to_vec(),
+            is_array_size: false,
         }
     }
 
@@ -341,6 +345,7 @@ impl Eip712FieldValue {
     pub fn from_bool(value: bool) -> Self {
         Eip712FieldValue {
             value: vec![if value { 1 } else { 0 }],
+            is_array_size: false,
         }
     }
 
@@ -348,6 +353,7 @@ impl Eip712FieldValue {
     pub fn from_uint(value: u64) -> Self {
         Eip712FieldValue {
             value: value.to_be_bytes().to_vec(),
+            is_array_size: false,
         }
     }
 
@@ -359,7 +365,7 @@ impl Eip712FieldValue {
         let copy_len = (bytes.len() - start).min(value_bytes.len());
         bytes[start..start + copy_len]
             .copy_from_slice(&value_bytes[value_bytes.len() - copy_len..]);
-        Eip712FieldValue { value: bytes }
+        Eip712FieldValue { value: bytes, is_array_size: false }
     }
 
     pub fn to_u64(self) -> Result<u64, &'static str> {
@@ -370,6 +376,7 @@ impl Eip712FieldValue {
     pub fn from_uint32(value: u32) -> Self {
         Eip712FieldValue {
             value: value.to_be_bytes().to_vec(),
+            is_array_size: false,
         }
     }
 
@@ -396,7 +403,7 @@ impl Eip712FieldValue {
             return Err("Address must be 20 bytes".to_string());
         }
 
-        Ok(Eip712FieldValue { value: bytes })
+        Ok(Eip712FieldValue { value: bytes, is_array_size: false })
     }
 
     pub fn to_address_string(&self) -> Result<String, &str> {
@@ -410,7 +417,7 @@ impl Eip712FieldValue {
 
     /// Create a reference to a nested struct (empty value for struct references)
     pub fn from_struct() -> Self {
-        Eip712FieldValue { value: vec![] }
+        Eip712FieldValue { value: vec![], is_array_size: false }
     }
 
     /// Create from an int value with specific size
@@ -421,12 +428,12 @@ impl Eip712FieldValue {
         let copy_len = (bytes.len() - start).min(value_bytes.len());
         bytes[start..start + copy_len]
             .copy_from_slice(&value_bytes[value_bytes.len() - copy_len..]);
-        Eip712FieldValue { value: bytes }
+        Eip712FieldValue { value: bytes, is_array_size: false }
     }
 
     /// Create from bytes
     pub fn from_bytes(bytes: Vec<u8>) -> Self {
-        Eip712FieldValue { value: bytes }
+        Eip712FieldValue { value: bytes, is_array_size: false }
     }
 }
 
