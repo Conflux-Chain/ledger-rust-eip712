@@ -6,5 +6,4 @@ pub mod parser;
 pub mod types;
 pub mod utils;
 
-pub use alloy_dyn_abi::{Eip712Types, Resolver, TypedData};
-pub use alloy_sol_types::Eip712Domain;
+pub use alloy_dyn_abi::{Eip712Domain, Eip712Types, Resolver, TypedData};

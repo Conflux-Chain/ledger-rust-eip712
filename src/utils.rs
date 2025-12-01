@@ -6,7 +6,7 @@ pub fn parse_utf8_string(data: &[u8]) -> Result<String, &'static str> {
 }
 
 pub fn parse_u64(data: &[u8]) -> Result<u64, &'static str> {
-    if data.len() != 8 {
+    if data.len() > 8 {
         return Err("invalid data len");
     }
     let mut buf = [0u8; 8];

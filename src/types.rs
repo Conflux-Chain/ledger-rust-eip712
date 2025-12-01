@@ -1,4 +1,7 @@
-use crate::utils::{parse_u64, parse_utf8_string};
+use crate::{
+    Eip712Domain,
+    utils::{parse_u64, parse_utf8_string},
+};
 use alloc::{
     collections::BTreeMap,
     format,
@@ -7,7 +10,7 @@ use alloc::{
     vec::Vec,
 };
 use alloy_dyn_abi::{Eip712Types, PropertyDef, Resolver};
-use alloy_primitives::hex;
+use alloy_primitives::{Address, B256, U256, hex};
 use bytes::{Buf, Bytes, TryGetError};
 
 pub const EIP712_DOMAIN_TYPE_NAME: &'static str = "EIP712Domain";
@@ -478,6 +481,62 @@ impl Eip712StructImplementation {
         self.values.push(value);
         self
     }
+
+    pub fn parse_eip712_domain(
+        &self,
+        field_defs: &Vec<Eip712FieldDefinition>,
+        eip712_domain: &mut Eip712Domain,
+    ) -> Result<(), &'static str> {
+        if self.name != EIP712_DOMAIN_TYPE_NAME {
+            return Err("invalid struct name");
+        }
+
+        if field_defs.len() != self.values.len() {
+            return Err("invalid data len");
+        }
+        let field_values = &self.values;
+        for (i, def) in field_defs.iter().enumerate() {
+            let value = field_values[i].clone();
+            match def.name.as_str() {
+                "name" => {
+                    let name_value = value.to_string()?;
+                    eip712_domain.name = Some(name_value.into());
+                }
+                "version" => {
+                    let version_value = value.to_string()?;
+                    eip712_domain.version = Some(version_value.into());
+                }
+                "chainId" => {
+                    let chain_id = value.to_u64()?;
+                    eip712_domain.chain_id = Some(U256::from(chain_id));
+                }
+                "verifyingContract" => {
+                    let raw_addr_value = value.value;
+                    if raw_addr_value.len() != 20 {
+                        return Err("invalid address len");
+                    }
+                    let mut buf = [0u8; 20];
+                    buf.copy_from_slice(&raw_addr_value);
+                    eip712_domain.verifying_contract = Some(Address::from(buf));
+                }
+                "salt" => {
+                    let raw_hash_value = value.value;
+                    if raw_hash_value.len() != 32 {
+                        return Err("invalid hash len");
+                    }
+                    let mut buf = [0u8; 32];
+                    buf.copy_from_slice(&raw_hash_value);
+                    eip712_domain.salt = Some(B256::from(buf));
+                }
+                _ => {
+                    // should not happen
+                    unreachable!();
+                }
+            }
+        }
+
+        Ok(())
+    }
 }
 
 pub type Eip712StructImplementations = BTreeMap<String, Vec<Eip712FieldValue>>;
@@ -485,7 +544,10 @@ pub type Eip712StructImplementations = BTreeMap<String, Vec<Eip712FieldValue>>;
 #[cfg(test)]
 mod tests {
     // Note this useful idiom: importing names from outer (for mod tests) scope.
-    use super::{Eip712ArrayLevel, Eip712FieldDefinition, Eip712FieldType};
+    use super::{
+        Eip712ArrayLevel, Eip712FieldDefinition, Eip712FieldType, Eip712FieldValue,
+        Eip712StructImplementation,
+    };
     use alloy_primitives::hex;
 
     #[test]
@@ -627,5 +689,52 @@ mod tests {
         assert_eq!(field_def.name, "bytes1");
         assert_eq!(field_def.array_levels.len(), 0);
         assert_eq!(field_def.field_type, Eip712FieldType::FixedBytes(1));
+    }
+
+    #[test]
+    fn test_parse_eip712_domain() {
+        let field_defs = vec![
+            Eip712FieldDefinition {
+                field_type: Eip712FieldType::String,
+                name: "name".to_string(),
+                array_levels: vec![],
+            },
+            Eip712FieldDefinition {
+                field_type: Eip712FieldType::String,
+                name: "version".to_string(),
+                array_levels: vec![],
+            },
+            Eip712FieldDefinition {
+                field_type: Eip712FieldType::Uint(32),
+                name: "chainId".to_string(),
+                array_levels: vec![],
+            },
+            Eip712FieldDefinition {
+                field_type: Eip712FieldType::Address,
+                name: "verifyingContract".to_string(),
+                array_levels: vec![],
+            },
+        ];
+
+        let struct_impl = Eip712StructImplementation {
+            name: "EIP712Domain".to_string(),
+            values: vec![
+                Eip712FieldValue::from_bytes(
+                    hex::decode("53696d706c65204d61696c").expect("success"),
+                ),
+                Eip712FieldValue::from_bytes(hex::decode("31").expect("success")),
+                Eip712FieldValue::from_bytes(hex::decode("01").expect("success")),
+                Eip712FieldValue::from_bytes(
+                    hex::decode("cccccccccccccccccccccccccccccccccccccccc").expect("success"),
+                ),
+            ],
+        };
+
+        let mut eip712_domain = Default::default();
+
+        struct_impl
+            .parse_eip712_domain(&field_defs, &mut eip712_domain)
+            .expect("sucess");
+        assert_eq!(eip712_domain.name.unwrap(), "Simple Mail");
     }
 }

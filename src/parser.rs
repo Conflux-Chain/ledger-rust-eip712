@@ -2,12 +2,12 @@ use crate::types::Eip712StructDefinitions;
 use crate::utils::*;
 
 use alloc::{
+    borrow::ToOwned,
     boxed::Box,
     format,
     string::{String, ToString},
     vec,
     vec::Vec,
-    borrow::ToOwned,
 };
 use alloy_primitives::hex;
 use serde_json::{Number, Value};
@@ -281,7 +281,7 @@ pub fn build_ui_fields(
 mod tests {
     use alloy_primitives::hex;
     // use alloy_sol_types::Eip712Domain;
-    use super::{build_schema, build_value, build_ui_fields};
+    use super::{build_schema, build_ui_fields, build_value};
     use crate::types::{
         Eip712ArrayLevel, Eip712FieldDefinition, Eip712FieldType, Eip712StructDefinitions,
         build_resolver_from_struct_defs,
