@@ -188,7 +188,7 @@ impl Eip712FieldDefinition {
     }
 
     pub fn from_bytes(bytes: &[u8]) -> Result<Self, &'static str> {
-        let get_err_str = |_: TryGetError| "Invalid len";
+        let get_err_str = |_: TryGetError| "bytes get u8 error";
 
         let mut buf = Bytes::copy_from_slice(bytes);
 
@@ -218,7 +218,7 @@ impl Eip712FieldDefinition {
             }
             2 => {
                 if !is_type_size_specified {
-                    return Err("Int type must specify size");
+                    return Err("UInt type must specify size");
                 }
                 let type_size = buf.try_get_u8().map_err(get_err_str)?;
                 Eip712FieldType::Uint(type_size)
@@ -228,7 +228,7 @@ impl Eip712FieldDefinition {
             5 => Eip712FieldType::String,
             6 => {
                 if !is_type_size_specified {
-                    return Err("Int type must specify size");
+                    return Err("fixed bytes type must specify size");
                 }
                 let type_size = buf.try_get_u8().map_err(get_err_str)?;
                 Eip712FieldType::FixedBytes(type_size)
@@ -328,7 +328,7 @@ impl Eip712FieldValue {
     }
 
     pub fn to_string(self) -> Result<String, &'static str> {
-        String::from_utf8(self.value).map_err(|_| "invalid data")
+        String::from_utf8(self.value).map_err(|_| "invalid string data")
     }
 
     /// Create from a u256 value
@@ -420,7 +420,7 @@ impl Eip712FieldValue {
 
     pub fn to_address_string(&self) -> Result<String, &str> {
         if self.value.len() != 20 {
-            return Err("invalid len");
+            return Err("invalid address len");
         }
         let mut hex_addr = String::from("0x");
         hex_addr.push_str(&hex::encode(&self.value));
@@ -492,7 +492,7 @@ impl Eip712StructImplementation {
         }
 
         if field_defs.len() != self.values.len() {
-            return Err("invalid data len");
+            return Err("field def len not match field data len");
         }
         let field_values = &self.values;
         for (i, def) in field_defs.iter().enumerate() {

@@ -27,7 +27,7 @@ pub fn build_schema(
     struct_defs: &Eip712StructDefinitions,
     type_name: &String,
 ) -> Result<TypeSchema, String> {
-    let field_defs = struct_defs.get(type_name).ok_or("not found")?;
+    let field_defs = struct_defs.get(type_name).ok_or("build_schema not found")?;
 
     let mut fields = Vec::new();
 
@@ -68,13 +68,13 @@ pub fn build_value(
 ) -> Result<Value, String> {
     let res = match schema {
         TypeSchema::Primitive { name, size } => {
-            let raw = data.next().ok_or("invalid")?;
+            let raw = data.next().ok_or("build value data.next failed")?;
             match name.as_str() {
                 "bool" => Value::Bool(raw[0] == 1),
                 "int" => {
                     if let Some(s) = size {
                         if raw.len() > *s as usize {
-                            return Err("invalid len".to_string());
+                            return Err("invalid int len".to_string());
                         }
                     }
                     if raw.len() <= 16 {
@@ -91,7 +91,7 @@ pub fn build_value(
                 "uint" => {
                     if let Some(s) = size {
                         if raw.len() > *s as usize {
-                            return Err("invalid len".to_string());
+                            return Err("invalid uint len".to_string());
                         }
                     }
                     if raw.len() <= 16 {
@@ -109,7 +109,7 @@ pub fn build_value(
                 "bytes" => {
                     if let Some(s) = size {
                         if raw.len() != *s as usize {
-                            return Err("invalid len".to_string());
+                            return Err("invalid bytes len".to_string());
                         }
                     }
                     let hex_str = format!("0x{}", hex::encode(&raw));
@@ -121,7 +121,7 @@ pub fn build_value(
                 }
                 "address" => {
                     if raw.len() != 20 {
-                        return Err("invalid len".to_string());
+                        return Err("invalid address len".to_string());
                     }
                     let addr_hex_str = format!("0x{}", hex::encode(&raw));
                     Value::String(addr_hex_str)
@@ -132,9 +132,9 @@ pub fn build_value(
             }
         }
         TypeSchema::Array { item } => {
-            let len_v = data.next().ok_or("invalid")?;
+            let len_v = data.next().ok_or("build value data.next failed")?;
             if len_v.len() != 1 {
-                return Err("invalid len".to_string());
+                return Err("invalid array size len".to_string());
             }
             let len = len_v[0];
             let mut arr = vec![];
@@ -170,7 +170,7 @@ pub fn build_ui_fields(
 ) -> Result<Vec<UIField>, String> {
     let res = match schema {
         TypeSchema::Primitive { name, size } => {
-            let raw = data.next().ok_or("invalid")?;
+            let raw = data.next().ok_or("build_ui data.next failed")?;
             let field = match name.as_str() {
                 "bool" => UIField {
                     name: field_name.to_owned(),
@@ -183,7 +183,7 @@ pub fn build_ui_fields(
                 "int" => {
                     if let Some(s) = size {
                         if raw.len() > *s as usize {
-                            return Err("invalid len".to_string());
+                            return Err("invalid int len".to_string());
                         }
                     }
                     let value = if raw.len() <= 16 {
@@ -201,7 +201,7 @@ pub fn build_ui_fields(
                 "uint" => {
                     if let Some(s) = size {
                         if raw.len() > *s as usize {
-                            return Err("invalid len".to_string());
+                            return Err("invalid uint len".to_string());
                         }
                     }
                     let value = if raw.len() <= 16 {
@@ -219,7 +219,7 @@ pub fn build_ui_fields(
                 "bytes" => {
                     if let Some(s) = size {
                         if raw.len() != *s as usize {
-                            return Err("invalid len".to_string());
+                            return Err("invalid bytes len".to_string());
                         }
                     }
                     let hex_str = format!("0x{}", hex::encode(&raw));
@@ -237,7 +237,7 @@ pub fn build_ui_fields(
                 }
                 "address" => {
                     if raw.len() != 20 {
-                        return Err("invalid len".to_string());
+                        return Err("invalid address len".to_string());
                     }
                     let addr_hex_str = format!("0x{}", hex::encode(&raw));
                     UIField {
@@ -252,9 +252,9 @@ pub fn build_ui_fields(
             vec![field]
         }
         TypeSchema::Array { item } => {
-            let len_v = data.next().ok_or("invalid")?;
+            let len_v = data.next().ok_or("build_ui data.next failed")?;
             if len_v.len() != 1 {
-                return Err("invalid len".to_string());
+                return Err("invalid array size len".to_string());
             }
             let len = len_v[0];
             let mut arr = vec![];
