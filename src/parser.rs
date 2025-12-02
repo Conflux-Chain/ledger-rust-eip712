@@ -72,19 +72,18 @@ pub fn build_value(
             match name.as_str() {
                 "bool" => Value::Bool(raw[0] == 1),
                 "int" => {
-                    if let Some(s) = size {
-                        if raw.len() > *s as usize {
-                            return Err("invalid int len".to_string());
-                        }
+                    let the_size = size.expect("exist") as usize;
+                    if raw.len() > the_size as usize {
+                        return Err("invalid int len".to_string());
                     }
-                    if raw.len() <= 16 {
-                        let val = parse_i128(&raw).map_err(|err| err.to_string())?;
+                    if the_size <= 16 {
+                        let val = parse_i128(&raw, the_size).map_err(|err| err.to_string())?;
                         match Number::from_i128(val) {
                             Some(num) => Value::Number(num),
                             None => Value::String(format!("{:#x}", val)),
                         }
                     } else {
-                        let val = parse_i256(&raw).map_err(|err| err.to_string())?;
+                        let val = parse_i256(&raw, the_size).map_err(|err| err.to_string())?;
                         Value::String(val.to_hex_string())
                     }
                 }
@@ -181,16 +180,15 @@ pub fn build_ui_fields(
                     },
                 },
                 "int" => {
-                    if let Some(s) = size {
-                        if raw.len() > *s as usize {
-                            return Err("invalid int len".to_string());
-                        }
+                    let the_size = size.expect("exist") as usize;
+                    if raw.len() > the_size as usize {
+                        return Err("invalid int len".to_string());
                     }
-                    let value = if raw.len() <= 16 {
-                        let val = parse_i128(&raw).map_err(|err| err.to_string())?;
+                    let value = if the_size <= 16 {
+                        let val = parse_i128(&raw, the_size).map_err(|err| err.to_string())?;
                         format!("{}", val)
                     } else {
-                        let val = parse_i256(&raw).map_err(|err| err.to_string())?;
+                        let val = parse_i256(&raw, the_size).map_err(|err| err.to_string())?;
                         format!("{}", val)
                     };
                     UIField {
@@ -347,34 +345,35 @@ mod tests {
         Ok(typed)
     }
 
+    fn get_domain_struct_def() -> Vec<Eip712FieldDefinition> {
+        vec![
+            Eip712FieldDefinition {
+                name: "name".to_string(),
+                field_type: Eip712FieldType::String,
+                array_levels: vec![],
+            },
+            Eip712FieldDefinition {
+                name: "version".to_string(),
+                field_type: Eip712FieldType::String,
+                array_levels: vec![],
+            },
+            Eip712FieldDefinition {
+                name: "chainId".to_string(),
+                field_type: Eip712FieldType::Uint(32),
+                array_levels: vec![],
+            },
+            Eip712FieldDefinition {
+                name: "verifyingContract".to_string(),
+                field_type: Eip712FieldType::Address,
+                array_levels: vec![],
+            },
+        ]
+    }
+
     fn prepare_struct_defs() -> Eip712StructDefinitions {
         let mut struct_defs: Eip712StructDefinitions = Default::default();
 
-        struct_defs.insert(
-            "EIP712Domain".to_string(),
-            vec![
-                Eip712FieldDefinition {
-                    name: "name".to_string(),
-                    field_type: Eip712FieldType::String,
-                    array_levels: vec![],
-                },
-                Eip712FieldDefinition {
-                    name: "version".to_string(),
-                    field_type: Eip712FieldType::String,
-                    array_levels: vec![],
-                },
-                Eip712FieldDefinition {
-                    name: "chainId".to_string(),
-                    field_type: Eip712FieldType::Uint(32),
-                    array_levels: vec![],
-                },
-                Eip712FieldDefinition {
-                    name: "verifyingContract".to_string(),
-                    field_type: Eip712FieldType::Address,
-                    array_levels: vec![],
-                },
-            ],
-        );
+        struct_defs.insert("EIP712Domain".to_string(), get_domain_struct_def());
 
         struct_defs.insert(
             "Mail".to_string(),
@@ -496,5 +495,100 @@ mod tests {
         let ui_fields = ui_fields.unwrap();
         println!("{:?}", ui_fields);
         assert!(ui_fields.len() > 0);
+    }
+
+    #[test]
+    fn test_signed_int() {
+        let mut struct_defs: Eip712StructDefinitions = Default::default();
+
+        struct_defs.insert("EIP712Domain".to_string(), get_domain_struct_def());
+
+        struct_defs.insert(
+            "Test".to_string(),
+            vec![
+                Eip712FieldDefinition {
+                    name: "neg256".to_string(),
+                    field_type: Eip712FieldType::Int(32),
+                    array_levels: vec![],
+                },
+                Eip712FieldDefinition {
+                    name: "pos256".to_string(),
+                    field_type: Eip712FieldType::Int(32),
+                    array_levels: vec![],
+                },
+                Eip712FieldDefinition {
+                    name: "neg128".to_string(),
+                    field_type: Eip712FieldType::Int(16),
+                    array_levels: vec![],
+                },
+                Eip712FieldDefinition {
+                    name: "pos128".to_string(),
+                    field_type: Eip712FieldType::Int(16),
+                    array_levels: vec![],
+                },
+                Eip712FieldDefinition {
+                    name: "neg64".to_string(),
+                    field_type: Eip712FieldType::Int(8),
+                    array_levels: vec![],
+                },
+                Eip712FieldDefinition {
+                    name: "pos64".to_string(),
+                    field_type: Eip712FieldType::Int(8),
+                    array_levels: vec![],
+                },
+                Eip712FieldDefinition {
+                    name: "neg32".to_string(),
+                    field_type: Eip712FieldType::Int(4),
+                    array_levels: vec![],
+                },
+                Eip712FieldDefinition {
+                    name: "pos32".to_string(),
+                    field_type: Eip712FieldType::Int(4),
+                    array_levels: vec![],
+                },
+                Eip712FieldDefinition {
+                    name: "neg16".to_string(),
+                    field_type: Eip712FieldType::Int(2),
+                    array_levels: vec![],
+                },
+                Eip712FieldDefinition {
+                    name: "pos16".to_string(),
+                    field_type: Eip712FieldType::Int(2),
+                    array_levels: vec![],
+                },
+                Eip712FieldDefinition {
+                    name: "neg8".to_string(),
+                    field_type: Eip712FieldType::Int(1),
+                    array_levels: vec![],
+                },
+                Eip712FieldDefinition {
+                    name: "pos8".to_string(),
+                    field_type: Eip712FieldType::Int(1),
+                    array_levels: vec![],
+                },
+            ],
+        );
+
+        let data = vec![
+            hex::decode("ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff00")
+                .unwrap(),
+            hex::decode("0100").unwrap(),
+            hex::decode("ffffffffffffffffffffffffffffff80").unwrap(),
+            hex::decode("80").unwrap(),
+            hex::decode("ffffffffffffffc0").unwrap(),
+            hex::decode("40").unwrap(),
+            hex::decode("ffffffe0").unwrap(),
+            hex::decode("20").unwrap(),
+            hex::decode("fff0").unwrap(),
+            hex::decode("10").unwrap(),
+            hex::decode("f8").unwrap(),
+            hex::decode("08").unwrap(),
+        ];
+
+        let type_schema = build_schema(&struct_defs, &"Test".to_string()).unwrap();
+
+        let value = build_value(&type_schema, &mut data.into_iter());
+        assert_eq!(value.is_ok(), true);
+        let _value = value.unwrap();
     }
 }
