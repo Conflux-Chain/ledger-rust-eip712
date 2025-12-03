@@ -2,7 +2,7 @@ use crate::types::Eip712StructDefinitions;
 use crate::utils::*;
 
 use alloc::{
-    borrow::ToOwned,
+    borrow::{Cow, ToOwned},
     boxed::Box,
     format,
     string::{String, ToString},
@@ -163,26 +163,26 @@ pub fn build_value(
 }
 
 #[derive(Debug)]
-pub struct UIField {
-    pub name: String,
-    pub value: String,
+pub struct UIField<'a> {
+    pub name: &'a str,
+    pub value: Cow<'a, str>,
 }
 
-pub fn build_ui_fields(
-    schema: &TypeSchema,
-    data: &mut impl Iterator<Item = Vec<u8>>,
-    field_name: &str, // used for primitives
-) -> Result<Vec<UIField>, String> {
+pub fn build_ui_fields<'a>(
+    schema: &'a TypeSchema,
+    data: &mut impl Iterator<Item = &'a [u8]>,
+    field_name: &'a str, // used for primitives
+) -> Result<Vec<UIField<'a>>, String> {
     let res = match schema {
         TypeSchema::Primitive { name, size } => {
             let raw = data.next().ok_or("build_ui data.next failed")?;
             let field = match name.as_str() {
                 "bool" => UIField {
-                    name: field_name.to_owned(),
+                    name: field_name,
                     value: if raw[0] == 1 {
-                        "true".to_string()
+                        Cow::Borrowed("true")
                     } else {
-                        "false".to_string()
+                        Cow::Borrowed("false")
                     },
                 },
                 "int" => {
@@ -198,8 +198,8 @@ pub fn build_ui_fields(
                         format!("{}", val)
                     };
                     UIField {
-                        name: field_name.to_owned(),
-                        value,
+                        name: field_name,
+                        value: Cow::Owned(value),
                     }
                 }
                 "uint" => {
@@ -216,8 +216,8 @@ pub fn build_ui_fields(
                         format!("{}", val)
                     };
                     UIField {
-                        name: field_name.to_owned(),
-                        value,
+                        name: field_name,
+                        value: Cow::Owned(value),
                     }
                 }
                 "bytes" => {
@@ -228,15 +228,15 @@ pub fn build_ui_fields(
                     }
                     let hex_str = format!("0x{}", hex::encode(&raw));
                     UIField {
-                        name: field_name.to_owned(),
-                        value: hex_str,
+                        name: field_name,
+                        value: Cow::Owned(hex_str),
                     }
                 }
                 "string" => {
-                    let val = parse_utf8_string(&raw).map_err(|err| err.to_string())?;
+                    let val = core::str::from_utf8(&raw).map_err(|err| err.to_string())?;
                     UIField {
-                        name: field_name.to_owned(),
-                        value: val,
+                        name: field_name,
+                        value: Cow::Borrowed(val),
                     }
                 }
                 "address" => {
@@ -245,8 +245,8 @@ pub fn build_ui_fields(
                     }
                     let addr_hex_str = format!("0x{}", hex::encode(&raw));
                     UIField {
-                        name: field_name.to_owned(),
-                        value: addr_hex_str,
+                        name: field_name,
+                        value: Cow::Owned(addr_hex_str),
                     }
                 }
                 _ => {
@@ -335,8 +335,9 @@ mod tests {
         let type_schema = type_schema.unwrap();
 
         let data = prepare_mail_data();
+        let mut ref_data = data.iter().map(|v| v.as_slice());
 
-        let ui_fields = build_ui_fields(&type_schema, &mut data.into_iter(), "");
+        let ui_fields = build_ui_fields(&type_schema, &mut ref_data, "");
         assert!(ui_fields.is_ok());
         let ui_fields = ui_fields.unwrap();
         println!("{:?}", ui_fields);

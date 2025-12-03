@@ -116,7 +116,7 @@ pub fn encode_data(
                         return Err("size info lacked".into());
                     }
                     let size = size.unwrap() as usize;
-                    if raw.len() <= 16 {
+                    if raw.len() <= 16 && size <= 16 {
                         let val = parse_i128(&raw, size)?;
                         val.abi_encode()
                     } else {
@@ -233,8 +233,9 @@ pub fn eip712_signing_hash(
 mod tests {
     use super::*;
     use crate::test_utils::*;
+    use alloc::collections::BTreeMap;
+    use alloy_dyn_abi::TypedData;
     use alloy_primitives::hex;
-    use std::collections::BTreeMap;
 
     #[test]
     fn test_encode_type_basic() {
@@ -410,5 +411,159 @@ mod tests {
         assert!(maybe_hash.is_ok());
 
         assert_eq!(maybe_hash.unwrap(), typed_data_hash);
+    }
+
+    fn get_sign_typed_data() -> TypedData {
+        let json = r#"
+            {
+                "domain": {
+                    "chainId": 1,
+                    "name": "Signed Ints test",
+                    "verifyingContract": "0xCcCCccccCCCCcCCCCCCcCcCccCcCCCcCcccccccC",
+                    "version": "1"
+                },
+                "message": {
+                    "neg256" : "-256",
+                    "pos256" : "256",
+                    "neg128" : "-128",
+                    "pos128" : "128",
+                    "neg64" : "-64",
+                    "pos64" : "64",
+                    "neg32" : "-32",
+                    "pos32" : "32",
+                    "neg16" : "-16",
+                    "pos16" : "16",
+                    "neg8" : "-8",
+                    "pos8" : "8"
+                },
+                "primaryType": "Test",
+                "types": {
+                    "EIP712Domain": [
+                        { "name": "name", "type": "string" },
+                        { "name": "version", "type": "string" },
+                        { "name": "chainId", "type": "uint256" },
+                        { "name": "verifyingContract", "type": "address" }
+                    ],
+                    "Test": [
+                        { "name": "neg256", "type": "int256" },
+                        { "name": "pos256", "type": "int256" },
+                        { "name": "neg128", "type": "int128" },
+                        { "name": "pos128", "type": "int128" },
+                        { "name": "neg64", "type": "int64" },
+                        { "name": "pos64", "type": "int64" },
+                        { "name": "neg32", "type": "int32" },
+                        { "name": "pos32", "type": "int32" },
+                        { "name": "neg16", "type": "int16" },
+                        { "name": "pos16", "type": "int16" },
+                        { "name": "neg8", "type": "int8" },
+                        { "name": "pos8", "type": "int8" }
+                    ]
+                }
+            }
+            "#;
+
+        let typed_data: TypedData = serde_json::from_str(json).unwrap();
+        typed_data
+    }
+
+    #[test]
+    fn test_encode_data_sign() {
+        let typed_data = get_sign_typed_data();
+
+        let mut struct_defs: Eip712StructDefinitions = Default::default();
+
+        struct_defs.insert(
+            "Test".to_string(),
+            vec![
+                Eip712FieldDefinition {
+                    name: "neg256".to_string(),
+                    field_type: Eip712FieldType::Int(32),
+                    array_levels: vec![],
+                },
+                Eip712FieldDefinition {
+                    name: "pos256".to_string(),
+                    field_type: Eip712FieldType::Int(32),
+                    array_levels: vec![],
+                },
+                Eip712FieldDefinition {
+                    name: "neg128".to_string(),
+                    field_type: Eip712FieldType::Int(16),
+                    array_levels: vec![],
+                },
+                Eip712FieldDefinition {
+                    name: "pos128".to_string(),
+                    field_type: Eip712FieldType::Int(16),
+                    array_levels: vec![],
+                },
+                Eip712FieldDefinition {
+                    name: "neg64".to_string(),
+                    field_type: Eip712FieldType::Int(8),
+                    array_levels: vec![],
+                },
+                Eip712FieldDefinition {
+                    name: "pos64".to_string(),
+                    field_type: Eip712FieldType::Int(8),
+                    array_levels: vec![],
+                },
+                Eip712FieldDefinition {
+                    name: "neg32".to_string(),
+                    field_type: Eip712FieldType::Int(4),
+                    array_levels: vec![],
+                },
+                Eip712FieldDefinition {
+                    name: "pos32".to_string(),
+                    field_type: Eip712FieldType::Int(4),
+                    array_levels: vec![],
+                },
+                Eip712FieldDefinition {
+                    name: "neg16".to_string(),
+                    field_type: Eip712FieldType::Int(2),
+                    array_levels: vec![],
+                },
+                Eip712FieldDefinition {
+                    name: "pos16".to_string(),
+                    field_type: Eip712FieldType::Int(2),
+                    array_levels: vec![],
+                },
+                Eip712FieldDefinition {
+                    name: "neg8".to_string(),
+                    field_type: Eip712FieldType::Int(1),
+                    array_levels: vec![],
+                },
+                Eip712FieldDefinition {
+                    name: "pos8".to_string(),
+                    field_type: Eip712FieldType::Int(1),
+                    array_levels: vec![],
+                },
+            ],
+        );
+
+        let raw_data = vec![
+            hex::decode("ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff00")
+                .unwrap(),
+            hex::decode("0100").unwrap(),
+            hex::decode("ffffffffffffffffffffffffffffff80").unwrap(),
+            hex::decode("80").unwrap(),
+            hex::decode("ffffffffffffffc0").unwrap(),
+            hex::decode("40").unwrap(),
+            hex::decode("ffffffe0").unwrap(),
+            hex::decode("20").unwrap(),
+            hex::decode("fff0").unwrap(),
+            hex::decode("10").unwrap(),
+            hex::decode("f8").unwrap(),
+            hex::decode("08").unwrap(),
+        ];
+
+        let schema = build_schema(&struct_defs, &"Test".to_string()).unwrap();
+
+        let struct_type_map: BTreeMap<String, String> =
+            encode_all_struct_type(&struct_defs).expect("success");
+        // check encode_data is correct
+        let encoded_data = encode_data(&schema, &struct_type_map, &mut raw_data.into_iter());
+        assert!(encoded_data.is_ok());
+        assert_eq!(
+            hex::encode(encoded_data.unwrap()),
+            hex::encode(typed_data.encode_data().unwrap())
+        );
     }
 }
