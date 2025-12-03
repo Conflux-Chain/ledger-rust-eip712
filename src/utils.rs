@@ -1,4 +1,4 @@
-use alloc::{borrow::ToOwned, vec, string::String};
+use alloc::{borrow::ToOwned, string::String, vec};
 use alloy_primitives::{I256, U256};
 
 pub fn parse_utf8_string(data: &[u8]) -> Result<String, &'static str> {

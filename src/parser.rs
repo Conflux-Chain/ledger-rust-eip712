@@ -13,14 +13,17 @@ use alloy_primitives::hex;
 use serde_json::{Number, Value};
 
 pub enum TypeSchema {
+    // type name(uint) and it's possible size, only uint, int, bytes will have size
     Primitive { name: String, size: Option<u8> },
     Array { item: Box<TypeSchema> },
-    Struct { fields: Vec<Field> },
+    // Struct name(Person) and its fields
+    Struct { name: String, fields: Vec<Field> },
 }
 
 pub struct Field {
-    name: String,
-    ty: TypeSchema,
+    // the field name, eg: from, not type
+    pub name: String,
+    pub ty: TypeSchema,
 }
 
 pub fn build_schema(
@@ -58,7 +61,10 @@ pub fn build_schema(
         });
     }
 
-    return Ok(TypeSchema::Struct { fields });
+    return Ok(TypeSchema::Struct {
+        name: type_name.to_owned(),
+        fields,
+    });
 }
 
 // from type schema and raw data build serde_json::Value
@@ -144,7 +150,7 @@ pub fn build_value(
 
             arr.into()
         }
-        TypeSchema::Struct { fields } => {
+        TypeSchema::Struct { name: _, fields } => {
             let mut obj = serde_json::Map::new();
             for f in fields {
                 let value = build_value(&f.ty, data)?;
@@ -263,7 +269,7 @@ pub fn build_ui_fields(
 
             arr
         }
-        TypeSchema::Struct { fields } => {
+        TypeSchema::Struct { name: _, fields } => {
             let mut arr = vec![];
             for f in fields {
                 let res = build_ui_fields(&f.ty, data, &f.name)?;
@@ -277,191 +283,31 @@ pub fn build_ui_fields(
 
 #[cfg(test)]
 mod tests {
-    use alloy_primitives::hex;
-    // use alloy_sol_types::Eip712Domain;
     use super::{build_schema, build_ui_fields, build_value};
-    use crate::types::{
-        Eip712ArrayLevel, Eip712FieldDefinition, Eip712FieldType, Eip712StructDefinitions,
-        build_resolver_from_struct_defs,
+    use crate::{
+        test_utils::*,
+        types::{
+            Eip712FieldDefinition, Eip712FieldType, Eip712StructDefinitions,
+            build_resolver_from_struct_defs,
+        },
     };
     use alloy_dyn_abi::eip712::TypedData;
-
-    fn get_raw_typed_data() -> Result<TypedData, String> {
-        let json = r#"
-            {
-                "domain": {
-                    "chainId": 1,
-                    "name": "Simple Mail",
-                    "verifyingContract": "0xCcCCccccCCCCcCCCCCCcCcCccCcCCCcCcccccccC",
-                    "version": "1"
-                },
-                "message": {
-                    "from": {
-                        "name": "Cow",
-                        "wallets": [
-                            "0xCD2a3d9F938E13CD947Ec05AbC7FE734Df8DD826",
-                            "0xDeaDbeefdEAdbeefdEadbEEFdeadbeEFdEaDbeeF"
-                        ]
-                    },
-                    "to": {
-                        "name": "Bob",
-                        "wallets": [
-                            "0xbBbBBBBbbBBBbbbBbbBbbbbBBbBbbbbBbBbbBBbB",
-                            "0xB0BdaBea57B0BDABeA57b0bdABEA57b0BDabEa57",
-                            "0xB0B0b0b0b0b0B000000000000000000000000000"
-                        ]
-                    },
-                    "contents": "Hello, Bob!",
-                    "timestamp": 1633072800,
-                    "amount": 1000000,
-                    "payback": "0x1000000000000000000"
-                },
-                "primaryType": "Mail",
-                "types": {
-                    "EIP712Domain": [
-                        { "name": "name", "type": "string" },
-                        { "name": "version", "type": "string" },
-                        { "name": "chainId", "type": "uint256" },
-                        { "name": "verifyingContract", "type": "address" }
-                    ],
-                    "Mail": [
-                        { "name": "from", "type": "Person" },
-                        { "name": "to", "type": "Person" },
-                        { "name": "contents", "type": "string" },
-                        { "name": "timestamp", "type": "uint64" },
-                        { "name": "amount", "type": "uint256" },
-                        { "name": "payback", "type": "uint256" }
-                    ],
-                    "Person": [
-                        { "name": "name", "type": "string" },
-                        { "name": "wallets", "type": "address[]" }
-                    ]
-                }
-            }
-            "#;
-
-        let typed: TypedData = serde_json::from_str(json).map_err(|_| "invalid json str")?;
-        // let hash: B256 = typed.eip712_signing_hash().map_err(|_| "build 712 signing hash failed")?;
-        Ok(typed)
-    }
-
-    fn get_domain_struct_def() -> Vec<Eip712FieldDefinition> {
-        vec![
-            Eip712FieldDefinition {
-                name: "name".to_string(),
-                field_type: Eip712FieldType::String,
-                array_levels: vec![],
-            },
-            Eip712FieldDefinition {
-                name: "version".to_string(),
-                field_type: Eip712FieldType::String,
-                array_levels: vec![],
-            },
-            Eip712FieldDefinition {
-                name: "chainId".to_string(),
-                field_type: Eip712FieldType::Uint(32),
-                array_levels: vec![],
-            },
-            Eip712FieldDefinition {
-                name: "verifyingContract".to_string(),
-                field_type: Eip712FieldType::Address,
-                array_levels: vec![],
-            },
-        ]
-    }
-
-    fn prepare_struct_defs() -> Eip712StructDefinitions {
-        let mut struct_defs: Eip712StructDefinitions = Default::default();
-
-        struct_defs.insert("EIP712Domain".to_string(), get_domain_struct_def());
-
-        struct_defs.insert(
-            "Mail".to_string(),
-            vec![
-                Eip712FieldDefinition {
-                    name: "from".to_string(),
-                    field_type: Eip712FieldType::Custom("Person".to_string()),
-                    array_levels: vec![],
-                },
-                Eip712FieldDefinition {
-                    name: "to".to_string(),
-                    field_type: Eip712FieldType::Custom("Person".to_string()),
-                    array_levels: vec![],
-                },
-                Eip712FieldDefinition {
-                    name: "contents".to_string(),
-                    field_type: Eip712FieldType::String,
-                    array_levels: vec![],
-                },
-                Eip712FieldDefinition {
-                    name: "timestamp".to_string(),
-                    field_type: Eip712FieldType::Uint(8),
-                    array_levels: vec![],
-                },
-                Eip712FieldDefinition {
-                    name: "amount".to_string(),
-                    field_type: Eip712FieldType::Uint(32),
-                    array_levels: vec![],
-                },
-                Eip712FieldDefinition {
-                    name: "payback".to_string(),
-                    field_type: Eip712FieldType::Uint(32),
-                    array_levels: vec![],
-                },
-            ],
-        );
-
-        struct_defs.insert(
-            "Person".to_string(),
-            vec![
-                Eip712FieldDefinition {
-                    name: "name".to_string(),
-                    field_type: Eip712FieldType::String,
-                    array_levels: vec![],
-                },
-                Eip712FieldDefinition {
-                    name: "wallets".to_string(),
-                    field_type: Eip712FieldType::Address,
-                    array_levels: vec![Eip712ArrayLevel::Dynamic],
-                },
-            ],
-        );
-
-        struct_defs
-    }
-
-    fn prepare_data() -> Vec<Vec<u8>> {
-        vec![
-            hex::decode("436f77").unwrap(),
-            hex::decode("02").unwrap(),
-            hex::decode("cd2a3d9f938e13cd947ec05abc7fe734df8dd826").unwrap(),
-            hex::decode("deadbeefdeadbeefdeadbeefdeadbeefdeadbeef").unwrap(),
-            hex::decode("426f62").unwrap(),
-            hex::decode("03").unwrap(),
-            hex::decode("bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb").unwrap(),
-            hex::decode("b0bdabea57b0bdabea57b0bdabea57b0bdabea57").unwrap(),
-            hex::decode("b0b0b0b0b0b0b000000000000000000000000000").unwrap(),
-            hex::decode("48656c6c6f2c20426f6221").unwrap(),
-            hex::decode("6156b6a0").unwrap(),
-            hex::decode("0f4240").unwrap(),
-            hex::decode("01000000000000000000").unwrap(),
-        ]
-    }
+    use alloy_primitives::hex;
 
     #[test]
     fn test_build_value() {
-        let struct_defs = prepare_struct_defs();
+        let struct_defs = prepare_mail_struct_defs();
 
         let type_schema = build_schema(&struct_defs, &"Mail".to_string());
         assert_eq!(type_schema.is_ok(), true);
         let type_schema = type_schema.unwrap();
 
-        let data = prepare_data();
+        let data = prepare_mail_data();
         let value = build_value(&type_schema, &mut data.into_iter());
         assert_eq!(value.is_ok(), true);
         let value = value.unwrap();
 
-        let typed = get_raw_typed_data().expect("success");
+        let typed = get_raw_mail_typed_data().expect("success");
 
         let resolver = build_resolver_from_struct_defs(&struct_defs).unwrap();
 
@@ -482,13 +328,13 @@ mod tests {
 
     #[test]
     fn test_build_ui_field() {
-        let struct_defs = prepare_struct_defs();
+        let struct_defs = prepare_mail_struct_defs();
 
         let type_schema = build_schema(&struct_defs, &"Mail".to_string());
         assert_eq!(type_schema.is_ok(), true);
         let type_schema = type_schema.unwrap();
 
-        let data = prepare_data();
+        let data = prepare_mail_data();
 
         let ui_fields = build_ui_fields(&type_schema, &mut data.into_iter(), "");
         assert!(ui_fields.is_ok());
@@ -503,8 +349,10 @@ mod tests {
 
         struct_defs.insert("EIP712Domain".to_string(), get_domain_struct_def());
 
+        let primary_type = "Test".to_string();
+
         struct_defs.insert(
-            "Test".to_string(),
+            primary_type.clone(),
             vec![
                 Eip712FieldDefinition {
                     name: "neg256".to_string(),
@@ -585,10 +433,23 @@ mod tests {
             hex::decode("08").unwrap(),
         ];
 
-        let type_schema = build_schema(&struct_defs, &"Test".to_string()).unwrap();
+        let type_schema = build_schema(&struct_defs, &primary_type).unwrap();
 
         let value = build_value(&type_schema, &mut data.into_iter());
         assert_eq!(value.is_ok(), true);
-        let _value = value.unwrap();
+        let value = value.unwrap();
+
+        let resolver = build_resolver_from_struct_defs(&struct_defs).unwrap();
+
+        let typed = get_raw_mail_typed_data().expect("success");
+        let new_typed_data = TypedData {
+            domain: typed.domain.clone(),
+            resolver,
+            primary_type: primary_type,
+            message: value,
+        };
+
+        let maybe_hash2 = new_typed_data.eip712_signing_hash();
+        assert!(maybe_hash2.is_ok());
     }
 }
