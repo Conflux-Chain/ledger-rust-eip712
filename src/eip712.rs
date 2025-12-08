@@ -232,10 +232,15 @@ pub fn eip712_signing_hash(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::test_utils::*;
+    use crate::{
+        test_utils::*,
+        types::{Eip712FieldDefinition, build_struct_defs_from_resolver},
+    };
     use alloc::collections::BTreeMap;
     use alloy_dyn_abi::TypedData;
     use alloy_primitives::hex;
+    use std::fs;
+    use std::path::Path;
 
     #[test]
     fn test_encode_type_basic() {
@@ -565,5 +570,39 @@ mod tests {
             hex::encode(encoded_data.unwrap()),
             hex::encode(typed_data.encode_data().unwrap())
         );
+    }
+
+    #[test]
+    fn test_multifile_encode_type() {
+        let res_dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("res");
+        assert!(res_dir.exists(), "res directory not found: {:?}", res_dir);
+
+        let mut json_files: Vec<String> = Vec::new();
+
+        for entry in fs::read_dir(&res_dir).expect("failed to read res dir") {
+            let entry = entry.expect("failed to read dir entry");
+            let path = entry.path();
+            if path.is_file() && path.extension().and_then(|s| s.to_str()) == Some("json") {
+                let contents = fs::read_to_string(&path).expect("failed to read json file");
+                // let parsed: Value = serde_json::from_str(&contents).expect("invalid json");
+                json_files.push(contents);
+            }
+        }
+
+        assert!(
+            !json_files.is_empty(),
+            "no json files loaded from res directory"
+        );
+
+        for json in json_files {
+            let typed_data: TypedData = serde_json::from_str(&json).expect("invalid json");
+
+            let struct_defs =
+                build_struct_defs_from_resolver(&typed_data.resolver).expect("build struct defs");
+
+            let all_types = encode_all_struct_type(&struct_defs).expect("encode all struct types");
+
+            assert_eq!(all_types.get(&typed_data.primary_type).unwrap(), &typed_data.encode_type().expect("typed data encode type"));
+        }
     }
 }

@@ -95,6 +95,65 @@ impl Eip712FieldType {
         };
         (name, self.type_size())
     }
+
+    pub fn parse_field_type(type_str: &str) -> Result<Self, String> {
+        let type_str = type_str.trim();
+
+        // Handle array types (e.g., "Person[]", "uint256[2]")
+        if type_str.ends_with(']') {
+            let (base_type, _array_spec) = type_str
+                .split_once('[')
+                .ok_or_else(|| format!("Invalid array type format: {}", type_str))?;
+
+            let base_field_type = Self::parse_base_field_type(base_type)?;
+            return Ok(base_field_type);
+        }
+
+        Self::parse_base_field_type(type_str)
+    }
+
+    /// Parse base field type (non-array)
+    fn parse_base_field_type(type_str: &str) -> Result<Self, String> {
+        match type_str {
+            "bool" => Ok(Eip712FieldType::Bool),
+            "address" => Ok(Eip712FieldType::Address),
+            "string" => Ok(Eip712FieldType::String),
+            "bytes" => Ok(Eip712FieldType::DynamicBytes),
+            _ => {
+                // Handle fixed-size bytes (e.g., "bytes32")
+                if let Some(size_str) = type_str.strip_prefix("bytes") {
+                    if let Ok(size) = size_str.parse::<u8>() {
+                        if size > 0 && size <= 32 {
+                            return Ok(Eip712FieldType::FixedBytes(size));
+                        }
+                    }
+                    return Err(format!("Invalid bytes size: {}", size_str));
+                }
+
+                // Handle integer types (e.g., "uint256", "int128")
+                if let Some(size_str) = type_str.strip_prefix("uint") {
+                    if let Ok(size) = size_str.parse::<u16>() {
+                        if size > 0 && size <= 256 && size % 8 == 0 {
+                            return Ok(Eip712FieldType::Uint((size / 8) as u8));
+                        }
+                    }
+                    return Err(format!("Invalid uint size: {}", size_str));
+                }
+
+                if let Some(size_str) = type_str.strip_prefix("int") {
+                    if let Ok(size) = size_str.parse::<u16>() {
+                        if size > 0 && size <= 256 && size % 8 == 0 {
+                            return Ok(Eip712FieldType::Int((size / 8) as u8));
+                        }
+                    }
+                    return Err(format!("Invalid int size: {}", size_str));
+                }
+
+                // Custom struct type
+                Ok(Eip712FieldType::Custom(type_str.to_string()))
+            }
+        }
+    }
 }
 
 /// EIP-712 array level type
@@ -187,6 +246,7 @@ impl Eip712FieldDefinition {
         PropertyDef::new(self.type_string(), self.name.clone()).map_err(|_| "invalid type")
     }
 
+    // the bytes is encoded as: https://github.com/LedgerHQ/app-ethereum/blob/develop/doc/ethapp.adoc#if-p2--struct-field
     pub fn from_bytes(bytes: &[u8]) -> Result<Self, &'static str> {
         let get_err_str = |_: TryGetError| "bytes get u8 error";
 
@@ -273,6 +333,56 @@ impl Eip712FieldDefinition {
             array_levels,
         })
     }
+
+    fn parse_array_levels(type_str: &str) -> Result<Vec<Eip712ArrayLevel>, String> {
+        let mut type_str = type_str.trim();
+        let mut array_levels = Vec::new();
+
+        // Handle array types (e.g., "Person[]", "uint256[2]")
+        while type_str.ends_with(']') {
+            let (base_type, array_spec) = type_str
+                .rsplit_once('[')
+                .ok_or_else(|| format!("Invalid array type format: {}", type_str))?;
+
+            let array_spec = array_spec.trim_end_matches(']');
+            let array_level = if array_spec.is_empty() {
+                Eip712ArrayLevel::Dynamic
+            } else {
+                let size: u8 = array_spec
+                    .parse()
+                    .map_err(|_| format!("Invalid array size: {}", array_spec))?;
+                Eip712ArrayLevel::Fixed(size)
+            };
+
+            array_levels.push(array_level);
+
+            type_str = base_type;
+        }
+
+        array_levels.reverse();
+
+        Ok(array_levels)
+    }
+
+    pub fn from_str(name: &str, type_name: &str) -> Result<Self, &'static str> {
+        let array_levels =
+            Self::parse_array_levels(type_name).map_err(|_| "invalid array levels")?;
+        let field_type =
+            Eip712FieldType::parse_field_type(type_name).map_err(|_| "invalid field type")?;
+        Ok(Eip712FieldDefinition {
+            name: name.to_owned(),
+            field_type,
+            array_levels,
+        })
+    }
+}
+
+impl TryFrom<&PropertyDef> for Eip712FieldDefinition {
+    type Error = &'static str;
+
+    fn try_from(prop_def: &PropertyDef) -> Result<Self, Self::Error> {
+        Eip712FieldDefinition::from_str(prop_def.name(), prop_def.type_name())
+    }
 }
 
 /// EIP-712 struct definition
@@ -300,6 +410,23 @@ pub fn build_resolver_from_struct_defs(
     }
     let resolver = Resolver::from(eip712_types);
     Ok(resolver)
+}
+
+pub fn build_struct_defs_from_resolver(
+    resolver: &Resolver,
+) -> Result<Eip712StructDefinitions, &'static str> {
+    let eip712_types = Eip712Types::from(resolver);
+    let struct_defs = eip712_types
+        .iter()
+        .map(|(name, fields)| {
+            let fs = fields
+                .iter()
+                .map(|f| Eip712FieldDefinition::try_from(f).expect("field def"))
+                .collect::<Vec<Eip712FieldDefinition>>();
+            (name.clone(), fs)
+        })
+        .collect();
+    Ok(struct_defs)
 }
 
 /// EIP-712 struct implementation value
