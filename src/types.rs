@@ -3,6 +3,7 @@ use crate::{
     utils::{parse_u64, parse_utf8_string},
 };
 use alloc::{
+    borrow::ToOwned,
     collections::BTreeMap,
     format,
     string::{String, ToString},
