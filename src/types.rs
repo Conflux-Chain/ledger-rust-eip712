@@ -1,5 +1,5 @@
 use crate::{
-    Eip712Domain,
+    EIP712_DOMAIN_TYPE_NAME, Eip712Domain,
     utils::{parse_u64, parse_utf8_string},
 };
 use alloc::{
@@ -13,8 +13,6 @@ use alloc::{
 use alloy_dyn_abi::{Eip712Types, PropertyDef, Resolver};
 use alloy_primitives::{Address, B256, U256, hex};
 use bytes::{Buf, Bytes, TryGetError};
-
-pub const EIP712_DOMAIN_TYPE_NAME: &'static str = "EIP712Domain";
 
 /// EIP-712 field type enumeration
 #[derive(Clone, Debug, PartialEq, Eq)]

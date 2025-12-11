@@ -1,4 +1,5 @@
 use crate::{
+    CIP23_DOMAIN_TYPE_NAME,
     parser::{TypeSchema, build_schema},
     types::Eip712StructDefinitions,
     utils::*,
@@ -11,7 +12,7 @@ use alloc::{
     vec,
     vec::Vec,
 };
-use alloy_primitives::{Address, B256, utils::keccak256};
+use alloy_primitives::{Address, B256, Keccak256, utils::keccak256};
 use alloy_sol_types::{Eip712Domain, SolValue};
 
 pub fn encode_types_without_sub_type(
@@ -201,7 +202,7 @@ pub fn encode_data(
 
 pub fn hash_struct(type_str: &String, encoded_data: &Vec<u8>) -> B256 {
     let type_hash = keccak256(type_str.as_bytes());
-    let mut hasher = alloy_primitives::Keccak256::new();
+    let mut hasher = Keccak256::new();
     hasher.update(type_hash);
     hasher.update(encoded_data);
     hasher.finalize()
@@ -213,11 +214,10 @@ pub fn eip712_signing_hash(
     primary_type: &String,
     domain: &Eip712Domain,
 ) -> Result<B256, String> {
-    let domain_separator = domain.separator();
-
     let struct_types = encode_all_struct_type(struct_defs)?;
-    let schema = build_schema(struct_defs, primary_type)?;
+    let domain_separator = domain_separator_hash(&struct_types, domain)?;
 
+    let schema = build_schema(struct_defs, primary_type)?;
     let type_str = struct_types.get(primary_type).ok_or("type str not found")?;
     let encoded_data = encode_data(&schema, &struct_types, data)?;
     let struct_hash = hash_struct(type_str, &encoded_data);
@@ -229,6 +229,19 @@ pub fn eip712_signing_hash(
     buf[34..].copy_from_slice(struct_hash.as_slice());
 
     Ok(keccak256(buf))
+}
+
+// compute domain separator hash according to CIP-23 if possible
+pub fn domain_separator_hash(
+    struct_types: &BTreeMap<String, String>,
+    domain: &Eip712Domain,
+) -> Result<B256, String> {
+    if let Some(cip23_domain_type) = struct_types.get(CIP23_DOMAIN_TYPE_NAME) {
+        let domain_hash = hash_struct(cip23_domain_type, &domain.encode_data());
+        return Ok(domain_hash);
+    } else {
+        return Ok(domain.separator());
+    }
 }
 
 #[cfg(test)]
@@ -261,6 +274,22 @@ mod tests {
         assert!(types2.is_ok());
         let types2 = types2.unwrap();
         assert_eq!(types2.keys().len(), 3);
+    }
+
+    #[test]
+    fn test_encode_type_cip23_domain() {
+        let domain_fields = get_domain_struct_def();
+        let mut struct_defs: Eip712StructDefinitions = Default::default();
+        struct_defs.insert("CIP23domain".to_string(), domain_fields);
+
+        let struct_types = encode_types_without_sub_type(&struct_defs).expect("success");
+        let type_str = encode_type(&struct_types, &struct_defs, &"CIP23domain".to_string());
+        assert!(type_str.is_ok());
+        let type_str = type_str.unwrap();
+        assert_eq!(
+            type_str,
+            "CIP23domain(string name,string version,uint256 chainId,address verifyingContract)"
+        );
     }
 
     #[test]
