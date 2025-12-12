@@ -1,5 +1,5 @@
 use crate::{
-    EIP712_DOMAIN_TYPE_NAME, Eip712Domain,
+    CIP23_DOMAIN_TYPE_NAME, EIP712_DOMAIN_TYPE_NAME, Eip712Domain,
     utils::{parse_u64, parse_utf8_string},
 };
 use alloc::{
@@ -613,7 +613,7 @@ impl Eip712StructImplementation {
         field_defs: &Vec<Eip712FieldDefinition>,
         eip712_domain: &mut Eip712Domain,
     ) -> Result<(), &'static str> {
-        if self.name != EIP712_DOMAIN_TYPE_NAME {
+        if self.name != EIP712_DOMAIN_TYPE_NAME && self.name != CIP23_DOMAIN_TYPE_NAME {
             return Err("invalid struct name");
         }
 
