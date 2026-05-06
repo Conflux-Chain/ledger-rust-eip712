@@ -2,6 +2,7 @@
 name = "ledger-rust-eip712"
 version = "0.1.0"
 edition = "2024"
+license = "MIT OR Apache-2.0"
 
 [dependencies]
 serde_json = { version = "1.0", default-features = false, features = ["alloc"] }
