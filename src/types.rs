@@ -121,29 +121,23 @@ impl Eip712FieldType {
             _ => {
                 // Handle fixed-size bytes (e.g., "bytes32")
                 if let Some(size_str) = type_str.strip_prefix("bytes") {
-                    if let Ok(size) = size_str.parse::<u8>() {
-                        if size > 0 && size <= 32 {
-                            return Ok(Eip712FieldType::FixedBytes(size));
-                        }
+                    if let Ok(size) = size_str.parse::<u8>() && size > 0 && size <= 32 {
+                        return Ok(Eip712FieldType::FixedBytes(size));
                     }
                     return Err(format!("Invalid bytes size: {}", size_str));
                 }
 
                 // Handle integer types (e.g., "uint256", "int128")
                 if let Some(size_str) = type_str.strip_prefix("uint") {
-                    if let Ok(size) = size_str.parse::<u16>() {
-                        if size > 0 && size <= 256 && size % 8 == 0 {
-                            return Ok(Eip712FieldType::Uint((size / 8) as u8));
-                        }
+                    if let Ok(size) = size_str.parse::<u16>() && size > 0 && size <= 256 && size % 8 == 0 {
+                        return Ok(Eip712FieldType::Uint((size / 8) as u8));
                     }
                     return Err(format!("Invalid uint size: {}", size_str));
                 }
 
                 if let Some(size_str) = type_str.strip_prefix("int") {
-                    if let Ok(size) = size_str.parse::<u16>() {
-                        if size > 0 && size <= 256 && size % 8 == 0 {
-                            return Ok(Eip712FieldType::Int((size / 8) as u8));
-                        }
+                    if let Ok(size) = size_str.parse::<u16>() && size > 0 && size <= 256 && size % 8 == 0 {
+                        return Ok(Eip712FieldType::Int((size / 8) as u8));
                     }
                     return Err(format!("Invalid int size: {}", size_str));
                 }
@@ -211,7 +205,7 @@ impl Eip712FieldDefinition {
     }
 
     pub fn is_primitive(&self) -> bool {
-        return !self.is_array() && !self.is_struct();
+        !self.is_array() && !self.is_struct()
     }
 
     pub fn is_struct(&self) -> bool {
@@ -610,7 +604,7 @@ impl Eip712StructImplementation {
 
     pub fn parse_eip712_domain(
         &self,
-        field_defs: &Vec<Eip712FieldDefinition>,
+        field_defs: &[Eip712FieldDefinition],
         eip712_domain: &mut Eip712Domain,
     ) -> Result<(), &'static str> {
         if self.name != EIP712_DOMAIN_TYPE_NAME && self.name != CIP23_DOMAIN_TYPE_NAME {
