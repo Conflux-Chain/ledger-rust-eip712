@@ -25,12 +25,12 @@ pub fn encode_types_without_sub_type(
         type_str.push_str(&format!("{}(", struct_name));
         for (index, field_def) in field_defs.iter().enumerate() {
             if index > 0 {
-                type_str.push_str(",");
+                type_str.push(',');
             }
             let field_type_str = field_def.type_string();
             type_str.push_str(&format!("{} {}", field_type_str, field_def.name));
         }
-        type_str.push_str(")");
+        type_str.push(')');
 
         res.insert(struct_name.to_owned(), type_str);
     }
@@ -79,7 +79,7 @@ pub fn encode_type(
 
     for custom in &sub_customs {
         let custom_type = struct_types.get(custom).ok_or("not found")?;
-        type_str.push_str(&custom_type);
+        type_str.push_str(custom_type);
     }
 
     Ok(type_str)
@@ -91,7 +91,7 @@ pub fn encode_all_struct_type(
     let struct_types = encode_types_without_sub_type(struct_defs)?;
     let mut res: BTreeMap<String, String> = Default::default();
 
-    for (type_name, _field_defs) in struct_defs {
+    for type_name in struct_defs.keys() {
         let type_str = encode_type(&struct_types, struct_defs, type_name)?;
         res.insert(type_name.to_owned(), type_str);
     }
@@ -238,9 +238,9 @@ pub fn domain_separator_hash(
 ) -> Result<B256, String> {
     if let Some(cip23_domain_type) = struct_types.get(CIP23_DOMAIN_TYPE_NAME) {
         let domain_hash = hash_struct(cip23_domain_type, &domain.encode_data());
-        return Ok(domain_hash);
+        Ok(domain_hash)
     } else {
-        return Ok(domain.separator());
+        Ok(domain.separator())
     }
 }
 

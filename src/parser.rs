@@ -61,10 +61,10 @@ pub fn build_schema(
         });
     }
 
-    return Ok(TypeSchema::Struct {
+    Ok(TypeSchema::Struct {
         name: type_name.to_owned(),
         fields,
-    });
+    })
 }
 
 // from type schema and raw data build serde_json::Value
@@ -79,7 +79,7 @@ pub fn build_value(
                 "bool" => Value::Bool(raw[0] == 1),
                 "int" => {
                     let the_size = size.expect("exist") as usize;
-                    if raw.len() > the_size as usize {
+                    if raw.len() > the_size {
                         return Err("invalid int len".to_string());
                     }
                     if the_size <= 16 {
@@ -94,10 +94,8 @@ pub fn build_value(
                     }
                 }
                 "uint" => {
-                    if let Some(s) = size {
-                        if raw.len() > *s as usize {
-                            return Err("invalid uint len".to_string());
-                        }
+                    if let Some(s) = size && raw.len() > *s as usize {
+                        return Err("invalid uint len".to_string());
                     }
                     if raw.len() <= 16 {
                         let val = parse_u128(&raw).map_err(|err| err.to_string())?;
@@ -112,10 +110,8 @@ pub fn build_value(
                     }
                 }
                 "bytes" => {
-                    if let Some(s) = size {
-                        if raw.len() != *s as usize {
-                            return Err("invalid bytes len".to_string());
-                        }
+                    if let Some(s) = size && raw.len() != *s as usize {
+                        return Err("invalid bytes len".to_string());
                     }
                     let hex_str = format!("0x{}", hex::encode(&raw));
                     Value::String(hex_str)
@@ -187,14 +183,14 @@ pub fn build_ui_fields<'a>(
                 },
                 "int" => {
                     let the_size = size.expect("exist") as usize;
-                    if raw.len() > the_size as usize {
+                    if raw.len() > the_size {
                         return Err("invalid int len".to_string());
                     }
                     let value = if the_size <= 16 {
-                        let val = parse_i128(&raw, the_size).map_err(|err| err.to_string())?;
+                        let val = parse_i128(raw, the_size).map_err(|err| err.to_string())?;
                         format!("{}", val)
                     } else {
-                        let val = parse_i256(&raw, the_size).map_err(|err| err.to_string())?;
+                        let val = parse_i256(raw, the_size).map_err(|err| err.to_string())?;
                         format!("{}", val)
                     };
                     UIField {
@@ -203,16 +199,14 @@ pub fn build_ui_fields<'a>(
                     }
                 }
                 "uint" => {
-                    if let Some(s) = size {
-                        if raw.len() > *s as usize {
-                            return Err("invalid uint len".to_string());
-                        }
+                    if let Some(s) = size && raw.len() > *s as usize {
+                        return Err("invalid uint len".to_string());
                     }
                     let value = if raw.len() <= 16 {
-                        let val = parse_u128(&raw).map_err(|err| err.to_string())?;
+                        let val = parse_u128(raw).map_err(|err| err.to_string())?;
                         format!("{}", val)
                     } else {
-                        let val = parse_u256(&raw).map_err(|err| err.to_string())?;
+                        let val = parse_u256(raw).map_err(|err| err.to_string())?;
                         format!("{}", val)
                     };
                     UIField {
@@ -221,19 +215,17 @@ pub fn build_ui_fields<'a>(
                     }
                 }
                 "bytes" => {
-                    if let Some(s) = size {
-                        if raw.len() != *s as usize {
-                            return Err("invalid bytes len".to_string());
-                        }
+                    if let Some(s) = size && raw.len() != *s as usize {
+                        return Err("invalid bytes len".to_string());
                     }
-                    let hex_str = format!("0x{}", hex::encode(&raw));
+                    let hex_str = format!("0x{}", hex::encode(raw));
                     UIField {
                         name: field_name,
                         value: Cow::Owned(hex_str),
                     }
                 }
                 "string" => {
-                    let val = core::str::from_utf8(&raw).map_err(|err| err.to_string())?;
+                    let val = core::str::from_utf8(raw).map_err(|err| err.to_string())?;
                     UIField {
                         name: field_name,
                         value: Cow::Borrowed(val),
@@ -243,7 +235,7 @@ pub fn build_ui_fields<'a>(
                     if raw.len() != 20 {
                         return Err("invalid address len".to_string());
                     }
-                    let addr_hex_str = format!("0x{}", hex::encode(&raw));
+                    let addr_hex_str = format!("0x{}", hex::encode(raw));
                     UIField {
                         name: field_name,
                         value: Cow::Owned(addr_hex_str),
