@@ -291,12 +291,12 @@ mod tests {
         let struct_defs = prepare_mail_struct_defs();
 
         let type_schema = build_schema(&struct_defs, &"Mail".to_string());
-        assert_eq!(type_schema.is_ok(), true);
+        assert!(type_schema.is_ok());
         let type_schema = type_schema.unwrap();
 
         let data = prepare_mail_data();
         let value = build_value(&type_schema, &mut data.into_iter());
-        assert_eq!(value.is_ok(), true);
+        assert!(value.is_ok());
         let value = value.unwrap();
 
         let typed = get_raw_mail_typed_data().expect("success");
@@ -323,7 +323,7 @@ mod tests {
         let struct_defs = prepare_mail_struct_defs();
 
         let type_schema = build_schema(&struct_defs, &"Mail".to_string());
-        assert_eq!(type_schema.is_ok(), true);
+        assert!(type_schema.is_ok());
         let type_schema = type_schema.unwrap();
 
         let data = prepare_mail_data();
@@ -333,7 +333,7 @@ mod tests {
         assert!(ui_fields.is_ok());
         let ui_fields = ui_fields.unwrap();
         println!("{:?}", ui_fields);
-        assert!(ui_fields.len() > 0);
+        assert!(!ui_fields.is_empty());
     }
 
     #[test]
@@ -429,7 +429,7 @@ mod tests {
         let type_schema = build_schema(&struct_defs, &primary_type).unwrap();
 
         let value = build_value(&type_schema, &mut data.into_iter());
-        assert_eq!(value.is_ok(), true);
+        assert!(value.is_ok());
         let value = value.unwrap();
 
         let resolver = build_resolver_from_struct_defs(&struct_defs).unwrap();
@@ -438,7 +438,7 @@ mod tests {
         let new_typed_data = TypedData {
             domain: typed.domain.clone(),
             resolver,
-            primary_type: primary_type,
+            primary_type,
             message: value,
         };
 
